@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>POD SEO Generator</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; padding: 20px; background: #f8f9fa; color: #333; margin: 0; }
+    .card { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); margin-bottom: 20px; }
+    h1 { font-size: 20px; text-align: center; margin-top: 0; }
+    label { font-weight: bold; display: block; margin-bottom: 8px; font-size: 14px; }
+    input[type="text"], input[type="password"] { width: 100%; box-sizing: border-box; padding: 12px; border: 1px solid #ccc; border-radius: 8px; margin-bottom: 15px; font-size: 14px; }
+    .file-btn { border: 2px dashed #ccc; padding: 20px; text-align: center; border-radius: 8px; background: #fafafa; margin-bottom: 15px; cursor: pointer; }
+    button { width: 100%; padding: 14px; background: #0066ff; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; }
+    #result { white-space: pre-wrap; background: #f1f3f5; padding: 15px; border-radius: 8px; font-size: 14px; min-height: 80px; margin-top: 10px; line-height: 1.6; word-break: break-all; }
+  </style>
+</head>
+<body>
+
+  <h1>🎨 POD SEO Generator</h1>
+
+  <div class="card">
+    <label for="apiKey">Google AI Studio API Key</label>
+    <input type="text" id="apiKey" placeholder="AIzaSy... から始まるキーを貼り付け">
+    
+    <label>画像を選択</label>
+    <div class="file-btn" onclick="document.getElementById('imageInput').click()">
+      📷 画像を選択する
+    </div>
+    <input type="file" id="imageInput" accept="image/*" style="display:none;" onchange="fileNameDisplay(this)">
+    <div id="fileName" style="font-size:12px; color:#666; text-align:center; margin-bottom:15px;"></div>
+    
+    <button onclick="generateSEO()">✨ SEOデータを出力する</button>
+  </div>
+
+  <div class="card">
+    <label>出力結果</label>
+    <div id="result">ここに結果が表示されます</div>
+  </div>
+
+  <script>
+    function fileNameDisplay(input) {
+      if(input.files && input.files[0]) {
+        document.getElementById('fileName').innerText = '選択中: ' + input.files[0].name;
+      }
+    }
+
+    async function generateSEO() {
+      const key = document.getElementById('apiKey').value.trim();
+      const fileInput = document.getElementById('imageInput');
+      const resultDiv = document.getElementById('result');
+
+      if (!key) { alert('APIキーを入力してください'); return; }
+      if (!fileInput.files[0]) { alert('画像を選択してください'); return; }
+
+      resultDiv.innerText = 'AIが解析中です...数秒〜十数秒お待ちください';
+
+      const file = fileInput.files[0];
+      const reader = new FileReader();
+
+      reader.onloadend = async () => {
+        const base64Data = reader.result.split(',')[1];
+        const mimeType = file.type || 'image/jpeg';
+
+        // gemini-2.0-flash に修正
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+
+        const payload = {
+          contents: [{
+            parts: [
+              { text: "この画像をPOD（プリントオンデマンド）ステッカー用のデザインとして解析し、Redbubbleで使える効果的な英語のタイトル、検索タグ（13個以上、カンマ区切り）、商品説明文を出力してください。" },
+              { inline_data: { mime_type: mimeType, data: base64Data } }
+            ]
+          }]
+        };
+
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+
+          const data = await response.json();
+
+          if (data.error) {
+            resultDiv.innerText = '【エラー内容】\nコード: ' + data.error.code + '\nメッセージ: ' + data.error.message;
+          } else if (data.candidates && data.candidates[0].content && data.candidates[0].content.parts[0].text) {
+            resultDiv.innerText = data.candidates[0].content.parts[0].text;
+          } else {
+            resultDiv.innerText = '【応答エラー】応答データ構造が不一致です:\n' + JSON.stringify(data, null, 2);
+          }
+        } catch (e) {
+          resultDiv.innerText = '【通信エラー】\n' + e.message;
+        }
+      };
+
+      reader.readAsDataURL(file);
+    }
+  </script>
+</body>
+</html>
